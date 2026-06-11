@@ -1,0 +1,38 @@
+name: daily-collect
+
+on:
+  schedule:
+    # 평일 16:40 KST (07:40 UTC) — 장 마감 + 데이터 확정 이후
+    - cron: "40 7 * * 1-5"
+  workflow_dispatch: {}      # 수동 실행 버튼
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Collect (다음 금융 API)
+        run: python collector.py
+
+      - name: Screen (텐베거 스코어링)
+        run: python screener.py
+
+      - name: Commit data
+        run: |
+          git config user.name "ai3-bot"
+          git config user.email "ai3-bot@users.noreply.github.com"
+          git add data/*.csv
+          git diff --cached --quiet || git commit -m "data: $(date +'%Y-%m-%d') daily snapshot"
+          git push
